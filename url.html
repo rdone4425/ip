@@ -44,10 +44,21 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
-        .url-input {
-            width: 100%;
-            padding: 10px;
+        .url-input-group {
+            display: flex;
+            gap: 10px;
             margin: 10px 0;
+            flex-wrap: wrap;
+        }
+
+        .url-input {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .alias-input {
+            width: 150px;
+            padding: 10px;
             border: 1px solid var(--border-color);
             border-radius: 4px;
             font-size: 14px;
@@ -55,10 +66,21 @@
             color: var(--text-color);
         }
 
-        .url-input:focus {
+        .alias-input:focus {
             outline: none;
             border-color: var(--primary-color);
             box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+        }
+
+        .url-alias {
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-bottom: 5px;
+        }
+
+        .url-text {
+            color: var(--secondary-color);
+            font-size: 0.9em;
         }
 
         .url-list {
@@ -84,12 +106,6 @@
 
         .url-item:hover {
             background-color: var(--background-color);
-        }
-
-        .url-text {
-            flex: 1;
-            margin-right: 10px;
-            word-break: break-all;
         }
 
         .button-group {
@@ -192,7 +208,7 @@
         <div class="description">
             在这里你可以管理IP文件的URL地址：
             <ul>
-                <li>添加新的URL地址</li>
+                <li>添加新的URL地址和别名</li>
                 <li>查看所有保存的URL</li>
                 <li>删除不需要的URL</li>
                 <li>设置默认URL</li>
@@ -201,6 +217,7 @@
 
         <div class="url-input-group">
             <input type="text" id="urlInput" class="url-input" placeholder="输入IP文件的URL" />
+            <input type="text" id="aliasInput" class="alias-input" placeholder="URL别名（选填）" />
             <button onclick="addUrl()" class="add-btn">添加URL</button>
         </div>
 
@@ -251,13 +268,24 @@
             const listElement = document.getElementById('urlList');
             
             listElement.innerHTML = '';
-            urlList.forEach(url => {
-                const item = document.createElement('div');
-                item.className = 'url-item';
+            urlList.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'url-item';
                 
-                const urlText = document.createElement('div');
-                urlText.className = 'url-text';
-                urlText.textContent = url;
+                const textContainer = document.createElement('div');
+                textContainer.style.flex = '1';
+                
+                if (item.alias) {
+                    const aliasDiv = document.createElement('div');
+                    aliasDiv.className = 'url-alias';
+                    aliasDiv.textContent = item.alias;
+                    textContainer.appendChild(aliasDiv);
+                }
+                
+                const urlDiv = document.createElement('div');
+                urlDiv.className = 'url-text';
+                urlDiv.textContent = item.url;
+                textContainer.appendChild(urlDiv);
                 
                 const buttonGroup = document.createElement('div');
                 buttonGroup.className = 'button-group';
@@ -265,24 +293,26 @@
                 const setDefaultBtn = document.createElement('button');
                 setDefaultBtn.textContent = '设为默认';
                 setDefaultBtn.className = 'add-btn';
-                setDefaultBtn.onclick = () => setAsDefault(url);
+                setDefaultBtn.onclick = () => setAsDefault(item.url);
                 
                 const deleteBtn = document.createElement('button');
                 deleteBtn.textContent = '删除';
                 deleteBtn.className = 'delete-btn';
-                deleteBtn.onclick = () => deleteUrl(url);
+                deleteBtn.onclick = () => deleteUrl(item.url);
                 
                 buttonGroup.appendChild(setDefaultBtn);
                 buttonGroup.appendChild(deleteBtn);
                 
-                item.appendChild(urlText);
-                item.appendChild(buttonGroup);
-                listElement.appendChild(item);
+                div.appendChild(textContainer);
+                div.appendChild(buttonGroup);
+                listElement.appendChild(div);
             });
         }
 
         function addUrl() {
             const url = document.getElementById('urlInput').value.trim();
+            const alias = document.getElementById('aliasInput').value.trim();
+            
             if (!url) {
                 showMessage('请输入URL', true);
                 return;
@@ -296,20 +326,26 @@
             }
             
             const urlList = JSON.parse(localStorage.getItem('urlList') || '[]');
-            if (!urlList.includes(url)) {
-                urlList.push(url);
-                localStorage.setItem('urlList', JSON.stringify(urlList));
-                document.getElementById('urlInput').value = '';
-                showMessage('URL已添加');
-                loadUrlList();
-            } else {
+            if (urlList.some(item => item.url === url)) {
                 showMessage('URL已存在', true);
+                return;
             }
+            
+            urlList.push({
+                url: url,
+                alias: alias || null
+            });
+            
+            localStorage.setItem('urlList', JSON.stringify(urlList));
+            document.getElementById('urlInput').value = '';
+            document.getElementById('aliasInput').value = '';
+            showMessage('URL已添加');
+            loadUrlList();
         }
 
         function deleteUrl(url) {
             const urlList = JSON.parse(localStorage.getItem('urlList') || '[]');
-            const index = urlList.indexOf(url);
+            const index = urlList.findIndex(item => item.url === url);
             if (index > -1) {
                 urlList.splice(index, 1);
                 localStorage.setItem('urlList', JSON.stringify(urlList));

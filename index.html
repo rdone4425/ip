@@ -207,6 +207,14 @@
             font-size: 0.9em;
             color: var(--secondary-color);
             margin-top: 5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .countdown {
+            color: var(--primary-color);
+            font-weight: bold;
         }
 
         @media (max-width: 600px) {
@@ -284,8 +292,11 @@
 
         <div class="auto-refresh">
             <input type="checkbox" id="autoRefresh" onchange="toggleAutoRefresh()">
-            <label for="autoRefresh">自动刷新 (每5分钟)</label>
-            <span class="refresh-time" id="refreshTime"></span>
+            <label for="autoRefresh">自动刷新</label>
+            <span class="refresh-time">
+                <span id="refreshTime"></span>
+                <span id="countdown" class="countdown"></span>
+            </span>
         </div>
 
         <div id="info" class="info" style="display: none;"></div>
@@ -298,6 +309,8 @@
         let isLoading = false;
         let autoRefreshInterval;
         let lastRefreshTime = null;
+        let countdownInterval;
+        const REFRESH_INTERVAL = 5 * 60 * 1000; // 5分钟
         
         // 主题切换
         function toggleTheme() {
@@ -499,8 +512,13 @@
 
         function startAutoRefresh() {
             fetchAndDisplay();
-            autoRefreshInterval = setInterval(fetchAndDisplay, 5 * 60 * 1000); // 5分钟
-            updateRefreshTime();
+            stopAutoRefresh(); // 清除现有的定时器
+            
+            // 设置新的刷新定时器
+            autoRefreshInterval = setInterval(fetchAndDisplay, REFRESH_INTERVAL);
+            
+            // 启动倒计时
+            startCountdown();
         }
 
         function stopAutoRefresh() {
@@ -508,6 +526,39 @@
                 clearInterval(autoRefreshInterval);
                 autoRefreshInterval = null;
             }
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+                countdownInterval = null;
+            }
+            document.getElementById('countdown').textContent = '';
+        }
+
+        function startCountdown() {
+            const countdownElement = document.getElementById('countdown');
+            let nextRefresh = Date.now() + REFRESH_INTERVAL;
+            
+            function updateCountdown() {
+                const now = Date.now();
+                const diff = nextRefresh - now;
+                
+                if (diff <= 0) {
+                    nextRefresh = Date.now() + REFRESH_INTERVAL;
+                    return;
+                }
+                
+                const minutes = Math.floor(diff / 60000);
+                const seconds = Math.floor((diff % 60000) / 1000);
+                countdownElement.textContent = `(${minutes}:${seconds.toString().padStart(2, '0')} 后刷新)`;
+            }
+            
+            // 立即更新一次
+            updateCountdown();
+            
+            // 每秒更新倒计时
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+            }
+            countdownInterval = setInterval(updateCountdown, 1000);
         }
 
         function updateRefreshTime() {
