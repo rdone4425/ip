@@ -264,6 +264,22 @@
             color: var(--secondary-color);
             margin-top: 2px;
         }
+
+        .ip-location {
+            font-size: 0.9em;
+            color: var(--primary-color);
+            margin-top: 2px;
+        }
+
+        .ip-isp {
+            font-size: 0.8em;
+            color: var(--secondary-color);
+            margin-top: 2px;
+        }
+
+        .ip-item {
+            padding: 15px;
+        }
     </style>
 </head>
 <body>
@@ -293,6 +309,10 @@
             <button onclick="window.location.href='url.html'" class="tooltip">
                 管理URL
                 <span class="tooltiptext">添加或管理URL</span>
+            </button>
+            <button onclick="window.location.href='txt.html'" class="tooltip">
+                TXT查看器
+                <span class="tooltiptext">查看TXT文件</span>
             </button>
         </div>
 
@@ -431,11 +451,20 @@
                 infoDiv.textContent = statusMessage;
                 infoDiv.style.display = 'block';
                 
-                // 创建IP网格
+                // 获取IP列表后,批量查询地理位置
+                const batchSize = 100; // ip-api.com 每批最多100个IP
+                const ipBatches = [];
+                for(let i = 0; i < uniqueIps.length; i += batchSize) {
+                    ipBatches.push(uniqueIps.slice(i, i + batchSize));
+                }
+                
+                const ipInfo = await queryIpLocation(uniqueIps);
+                
+                // 修改IP列表显示,添加地理位置信息
                 const ul = document.createElement('div');
                 ul.className = 'ip-grid';
                 
-                uniqueIps.sort((a, b) => a[0].localeCompare(b[0])).forEach(([ip, source]) => {
+                uniqueIps.forEach(([ip, source]) => {
                     const li = document.createElement('div');
                     li.className = 'ip-item';
                     
@@ -445,6 +474,20 @@
                     const ipText = document.createElement('div');
                     ipText.textContent = ip;
                     ipContainer.appendChild(ipText);
+                    
+                    // 添加地理位置信息
+                    if(ipInfo.has(ip)) {
+                        const info = ipInfo.get(ip);
+                        const locationText = document.createElement('div');
+                        locationText.className = 'ip-location';
+                        locationText.textContent = `${info.country} ${info.region} ${info.city}`;
+                        ipContainer.appendChild(locationText);
+                        
+                        const ispText = document.createElement('div');
+                        ispText.className = 'ip-isp';
+                        ispText.textContent = info.isp;
+                        ipContainer.appendChild(ispText);
+                    }
                     
                     const sourceText = document.createElement('div');
                     sourceText.className = 'ip-source';
@@ -599,6 +642,106 @@
         window.onbeforeunload = function() {
             localStorage.setItem('autoRefresh', document.getElementById('autoRefresh').checked);
         };
+
+        async function queryIpLocation(batch, retryCount = 0) {
+            const maxRetries = 3;
+            const retryDelay = 60000; // 1分钟
+            
+            try {
+                const response = await fetch('http://ip-api.com/batch', {
+                    method: 'POST',
+                    body: JSON.stringify(batch.map(ip => ({
+                        query: ip[0]
+                    }))),
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if(!response.ok) throw new Error('IP查询失败');
+                
+                const results = await response.json();
+                const successResults = new Map();
+                const failedQueries = [];
+                
+                results.forEach((result, index) => {
+                    if(result.status === 'success') {
+                        successResults.set(batch[index][0], {
+                            country: result.country,
+                            region: result.regionName,
+                            city: result.city,
+                            isp: result.isp
+                        });
+                    } else {
+                        failedQueries.push(batch[index]);
+                    }
+                });
+                
+                // 如果有查询失败的IP且未超过最大重试次数
+                if(failedQueries.length > 0 && retryCount < maxRetries) {
+                    // 更新状态消息
+                    const infoDiv = document.getElementById('info');
+                    infoDiv.textContent = `${failedQueries.length}个IP地理位置查询失败,将在1分钟后重试...`;
+                    
+                    // 一分钟后重试
+                    setTimeout(async () => {
+                        infoDiv.textContent = `正在重试查询${failedQueries.length}个失败的IP...`;
+                        const retryResults = await queryIpLocation(failedQueries, retryCount + 1);
+                        // 合并结果
+                        retryResults.forEach((value, key) => {
+                            successResults.set(key, value);
+                        });
+                        // 更新UI显示
+                        updateIpLocationDisplay(successResults);
+                    }, retryDelay);
+                } else if(failedQueries.length > 0) {
+                    // 达到最大重试次数
+                    showInfo(`${failedQueries.length}个IP地理位置查询失败`);
+                }
+                
+                return successResults;
+                
+            } catch(error) {
+                console.error('查询IP地理位置失败:', error);
+                if(retryCount < maxRetries) {
+                    const infoDiv = document.getElementById('info');
+                    infoDiv.textContent = '查询失败,将在1分钟后重试...';
+                    
+                    return new Promise(resolve => {
+                        setTimeout(async () => {
+                            const results = await queryIpLocation(batch, retryCount + 1);
+                            resolve(results);
+                        }, retryDelay);
+                    });
+                }
+                return new Map();
+            }
+        }
+
+        // 更新IP地理位置显示
+        function updateIpLocationDisplay(ipInfo) {
+            document.querySelectorAll('.ip-item').forEach(item => {
+                const ip = item.querySelector('div').textContent;
+                if(ipInfo.has(ip)) {
+                    const info = ipInfo.get(ip);
+                    
+                    // 移除现有的地理位置信息
+                    item.querySelectorAll('.ip-location, .ip-isp').forEach(el => el.remove());
+                    
+                    const locationText = document.createElement('div');
+                    locationText.className = 'ip-location';
+                    locationText.textContent = `${info.country} ${info.region} ${info.city}`;
+                    
+                    const ispText = document.createElement('div');
+                    ispText.className = 'ip-isp';
+                    ispText.textContent = info.isp;
+                    
+                    const ipContainer = item.querySelector('div');
+                    ipContainer.insertBefore(ispText, ipContainer.lastChild);
+                    ipContainer.insertBefore(locationText, ispText);
+                }
+            });
+        }
     </script>
 </body>
 </html> 
