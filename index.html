@@ -648,7 +648,7 @@
             const retryDelay = 60000; // 1分钟
             
             try {
-                const response = await fetch('http://ip-api.com/batch', {
+                const response = await fetch('https://ip-api.com/batch', {
                     method: 'POST',
                     body: JSON.stringify(batch.map(ip => ({
                         query: ip[0]
