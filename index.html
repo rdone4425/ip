@@ -296,6 +296,70 @@
             background-color: var(--primary-color);
             margin-left: auto;
         }
+
+        .url-list {
+            margin: 10px 0;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--card-background);
+        }
+
+        .url-item {
+            padding: 8px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+
+        .url-item:last-child {
+            border-bottom: none;
+        }
+
+        .url-item:hover {
+            background-color: var(--background-color);
+        }
+
+        .url-item.active {
+            background-color: rgba(76, 175, 80, 0.1);
+            border-left: 3px solid var(--primary-color);
+        }
+
+        .url-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .url-actions button {
+            padding: 4px 8px;
+            margin: 0;
+            font-size: 12px;
+        }
+
+        .delete-btn {
+            background-color: #dc3545;
+        }
+
+        .delete-btn:hover {
+            background-color: #c82333;
+        }
+
+        .url-input-group {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .url-input {
+            flex: 1;
+        }
+
+        .add-url-btn {
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
@@ -308,20 +372,25 @@
             <ul>
                 <li>查看IP文件中的所有有效IP地址</li>
                 <li>快速复制单个或所有IP地址</li>
+                <li>添加和管理多个IP文件源</li>
                 <li>自动刷新IP列表</li>
-                <li>自定义IP文件来源</li>
             </ul>
         </div>
 
-        <input type="text" id="urlInput" class="url-input" placeholder="输入IP文件的URL" />
+        <div class="url-input-group">
+            <input type="text" id="urlInput" class="url-input" placeholder="输入IP文件的URL" />
+            <button onclick="addUrl()" class="add-url-btn tooltip">
+                添加URL
+                <span class="tooltiptext">添加新的URL到列表</span>
+            </button>
+        </div>
+
+        <div id="urlList" class="url-list"></div>
+
         <div class="button-group">
             <button onclick="setDefaultUrl()" class="tooltip">
                 使用默认URL
                 <span class="tooltiptext">恢复默认IP文件地址</span>
-            </button>
-            <button onclick="saveUrl()" class="tooltip">
-                保存URL
-                <span class="tooltiptext">保存当前URL到本地</span>
             </button>
             <button onclick="fetchAndDisplay()" class="tooltip">
                 刷新IP列表
@@ -389,6 +458,12 @@
             
             // 立即加载IP列表
             fetchAndDisplay();
+
+            // 初始化URL列表
+            if (!localStorage.getItem('urlList')) {
+                localStorage.setItem('urlList', JSON.stringify([defaultUrl]));
+            }
+            loadUrlList();
         };
 
         function getCurrentUrl() {
@@ -576,6 +651,83 @@
         window.onbeforeunload = function() {
             localStorage.setItem('autoRefresh', document.getElementById('autoRefresh').checked);
         };
+
+        // URL管理功能
+        function loadUrlList() {
+            const urlList = JSON.parse(localStorage.getItem('urlList') || '[]');
+            const listElement = document.getElementById('urlList');
+            const currentUrl = getCurrentUrl();
+            
+            listElement.innerHTML = '';
+            urlList.forEach(url => {
+                const item = document.createElement('div');
+                item.className = `url-item ${url === currentUrl ? 'active' : ''}`;
+                
+                const urlText = document.createElement('span');
+                urlText.textContent = url;
+                
+                const actions = document.createElement('div');
+                actions.className = 'url-actions';
+                
+                const useBtn = document.createElement('button');
+                useBtn.textContent = '使用';
+                useBtn.onclick = () => useUrl(url);
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = '删除';
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.onclick = () => deleteUrl(url);
+                
+                actions.appendChild(useBtn);
+                actions.appendChild(deleteBtn);
+                
+                item.appendChild(urlText);
+                item.appendChild(actions);
+                listElement.appendChild(item);
+            });
+        }
+
+        function addUrl() {
+            const url = document.getElementById('urlInput').value.trim();
+            if (!url) {
+                showError('请输入URL');
+                return;
+            }
+            
+            try {
+                new URL(url);
+            } catch {
+                showError('请输入有效的URL');
+                return;
+            }
+            
+            const urlList = JSON.parse(localStorage.getItem('urlList') || '[]');
+            if (!urlList.includes(url)) {
+                urlList.push(url);
+                localStorage.setItem('urlList', JSON.stringify(urlList));
+                showInfo('URL已添加');
+                loadUrlList();
+            } else {
+                showInfo('URL已存在');
+            }
+        }
+
+        function deleteUrl(url) {
+            const urlList = JSON.parse(localStorage.getItem('urlList') || '[]');
+            const index = urlList.indexOf(url);
+            if (index > -1) {
+                urlList.splice(index, 1);
+                localStorage.setItem('urlList', JSON.stringify(urlList));
+                showInfo('URL已删除');
+                loadUrlList();
+            }
+        }
+
+        function useUrl(url) {
+            document.getElementById('urlInput').value = url;
+            loadUrlList();
+            fetchAndDisplay();
+        }
     </script>
 </body>
 </html> 
