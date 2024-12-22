@@ -258,6 +258,12 @@
             visibility: visible;
             opacity: 1;
         }
+
+        .ip-source {
+            font-size: 0.8em;
+            color: var(--secondary-color);
+            margin-top: 2px;
+        }
     </style>
 </head>
 <body>
@@ -383,13 +389,13 @@
                 infoDiv.style.display = 'block';
 
                 // 并行获取所有URL的IP
-                const allIps = new Set(); // 使用Set去重
+                const allIps = new Map(); // 使用Map存储IP和来源
                 const errors = [];
                 
-                await Promise.all(urlList.map(async (url) => {
+                await Promise.all(urlList.map(async (item) => {
                     try {
-                        const response = await fetch(url);
-                        if (!response.ok) throw new Error(`URL ${url} 响应不正常`);
+                        const response = await fetch(item.url);
+                        if (!response.ok) throw new Error(`${item.alias || item.url} 响应不正常`);
                         const text = await response.text();
                         
                         // 提取并验证IP
@@ -397,15 +403,19 @@
                             return ip.trim().length > 0 && isValidIP(ip.trim());
                         });
                         
-                        // 添加到Set中自动去重
-                        ips.forEach(ip => allIps.add(ip));
+                        // 添加到Map中，记录来源
+                        ips.forEach(ip => {
+                            if (!allIps.has(ip)) {
+                                allIps.set(ip, item.alias || item.url);
+                            }
+                        });
                     } catch (error) {
-                        errors.push(`${url}: ${error.message}`);
+                        errors.push(`${item.alias || item.url}: ${error.message}`);
                     }
                 }));
 
-                // 转换Set为数组
-                const uniqueIps = Array.from(allIps);
+                // 转换Map为数组
+                const uniqueIps = Array.from(allIps.entries());
                 
                 // 显示结果
                 if (uniqueIps.length === 0 && errors.length > 0) {
@@ -425,12 +435,21 @@
                 const ul = document.createElement('div');
                 ul.className = 'ip-grid';
                 
-                uniqueIps.sort().forEach(ip => {
+                uniqueIps.sort((a, b) => a[0].localeCompare(b[0])).forEach(([ip, source]) => {
                     const li = document.createElement('div');
                     li.className = 'ip-item';
                     
-                    const ipText = document.createElement('span');
+                    const ipContainer = document.createElement('div');
+                    ipContainer.style.flex = '1';
+                    
+                    const ipText = document.createElement('div');
                     ipText.textContent = ip;
+                    ipContainer.appendChild(ipText);
+                    
+                    const sourceText = document.createElement('div');
+                    sourceText.className = 'ip-source';
+                    sourceText.textContent = source;
+                    ipContainer.appendChild(sourceText);
                     
                     const copyBtn = document.createElement('button');
                     copyBtn.className = 'copy-btn';
@@ -445,7 +464,7 @@
                         });
                     };
                     
-                    li.appendChild(ipText);
+                    li.appendChild(ipContainer);
                     li.appendChild(copyBtn);
                     ul.appendChild(li);
                 });
