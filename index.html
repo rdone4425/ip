@@ -378,10 +378,10 @@
         </div>
 
         <div class="url-input-group">
-            <input type="text" id="urlInput" class="url-input" placeholder="输入IP文件的URL" />
-            <button onclick="addUrl()" class="add-url-btn tooltip">
-                添加URL
-                <span class="tooltiptext">添加新的URL到列表</span>
+            <input type="text" id="urlInput" class="url-input" placeholder="输入IP文件的URL" readonly />
+            <button onclick="window.location.href='url.html'" class="add-url-btn tooltip">
+                管理URL
+                <span class="tooltiptext">添加或管理URL</span>
             </button>
         </div>
 
@@ -516,25 +516,63 @@
             const contentDiv = document.getElementById('content');
             const infoDiv = document.getElementById('info');
             try {
-                const url = getCurrentUrl();
-                if (!url) return;
-
                 if (button) await setLoading(button, true);
-                const response = await fetch(url);
-                if (!response.ok) throw new Error('网络响应不正常');
-                const text = await response.text();
                 
-                const ips = text.split(/[\s,]+/).filter(ip => {
-                    return ip.trim().length > 0 && isValidIP(ip.trim());
-                });
+                // 获取所有URL
+                const urlList = JSON.parse(localStorage.getItem('urlList') || '[]');
+                if (urlList.length === 0) {
+                    showError('没有可用的URL，请先添加URL');
+                    return;
+                }
+
+                // 显示加载状态
+                infoDiv.textContent = '正在获取IP列表...';
+                infoDiv.style.display = 'block';
+
+                // 并行获取所有URL的IP
+                const allIps = new Set(); // 使用Set去重
+                const errors = [];
                 
-                infoDiv.textContent = `共找到 ${ips.length} 个有效IP地址`;
+                await Promise.all(urlList.map(async (url) => {
+                    try {
+                        const response = await fetch(url);
+                        if (!response.ok) throw new Error(`URL ${url} 响应不正常`);
+                        const text = await response.text();
+                        
+                        // 提取并验证IP
+                        const ips = text.split(/[\s,]+/).filter(ip => {
+                            return ip.trim().length > 0 && isValidIP(ip.trim());
+                        });
+                        
+                        // 添加到Set中自动去重
+                        ips.forEach(ip => allIps.add(ip));
+                    } catch (error) {
+                        errors.push(`${url}: ${error.message}`);
+                    }
+                }));
+
+                // 转换Set为数组
+                const uniqueIps = Array.from(allIps);
+                
+                // 显示结果
+                if (uniqueIps.length === 0 && errors.length > 0) {
+                    showError('获取IP失败:\n' + errors.join('\n'));
+                    return;
+                }
+
+                // 显示IP数量和错误信息
+                let statusMessage = `共找到 ${uniqueIps.length} 个有效IP地址`;
+                if (errors.length > 0) {
+                    statusMessage += `\n(${errors.length}个URL加载失败)`;
+                }
+                infoDiv.textContent = statusMessage;
                 infoDiv.style.display = 'block';
                 
+                // 创建IP网格
                 const ul = document.createElement('div');
                 ul.className = 'ip-grid';
                 
-                ips.forEach(ip => {
+                uniqueIps.sort().forEach(ip => {
                     const li = document.createElement('div');
                     li.className = 'ip-item';
                     

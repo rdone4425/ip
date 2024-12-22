@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL管理 - IP地址查看器</title>
+    <style>
+        :root {
+            --primary-color: #4CAF50;
+            --primary-hover: #45a049;
+            --secondary-color: #6c757d;
+            --secondary-hover: #5a6268;
+            --background-color: #f5f5f5;
+            --card-background: white;
+            --text-color: #333;
+            --border-color: #ddd;
+        }
+
+        [data-theme="dark"] {
+            --primary-color: #66bb6a;
+            --primary-hover: #4caf50;
+            --secondary-color: #90a4ae;
+            --secondary-hover: #78909c;
+            --background-color: #1a1a1a;
+            --card-background: #2d2d2d;
+            --text-color: #e0e0e0;
+            --border-color: #404040;
+        }
+
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 20px auto; 
+            padding: 0 20px; 
+            background-color: var(--background-color);
+            color: var(--text-color);
+            transition: all 0.3s ease;
+        }
+
+        .container { 
+            background-color: var(--card-background); 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .url-input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 14px;
+            background-color: var(--card-background);
+            color: var(--text-color);
+        }
+
+        .url-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+        }
+
+        .url-list {
+            margin: 20px 0;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .url-item {
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--card-background);
+            transition: all 0.3s ease;
+        }
+
+        .url-item:last-child {
+            border-bottom: none;
+        }
+
+        .url-item:hover {
+            background-color: var(--background-color);
+        }
+
+        .url-text {
+            flex: 1;
+            margin-right: 10px;
+            word-break: break-all;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            color: white;
+            transition: all 0.3s ease;
+        }
+
+        .add-btn {
+            background-color: var(--primary-color);
+        }
+
+        .add-btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .delete-btn {
+            background-color: #dc3545;
+        }
+
+        .delete-btn:hover {
+            background-color: #c82333;
+        }
+
+        .back-btn {
+            background-color: var(--secondary-color);
+            margin-bottom: 20px;
+        }
+
+        .back-btn:hover {
+            background-color: var(--secondary-hover);
+        }
+
+        .info {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            background-color: rgba(33, 150, 243, 0.1);
+            color: var(--text-color);
+        }
+
+        .error {
+            background-color: rgba(220, 53, 69, 0.1);
+            color: #dc3545;
+        }
+
+        .theme-switch {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            cursor: pointer;
+            padding: 10px;
+            border-radius: 50%;
+            background-color: var(--card-background);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            transition: all 0.3s ease;
+        }
+
+        .theme-switch:hover {
+            transform: rotate(180deg);
+        }
+
+        .description {
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+                margin: 10px;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button class="theme-switch" onclick="toggleTheme()" title="切换主题">🌓</button>
+    <div class="container">
+        <button class="back-btn" onclick="window.location.href='index.html'">返回主页</button>
+        <h1>URL管理</h1>
+        
+        <div class="description">
+            在这里你可以管理IP文件的URL地址：
+            <ul>
+                <li>添加新的URL地址</li>
+                <li>查看所有保存的URL</li>
+                <li>删除不需要的URL</li>
+                <li>设置默认URL</li>
+            </ul>
+        </div>
+
+        <div class="url-input-group">
+            <input type="text" id="urlInput" class="url-input" placeholder="输入IP文件的URL" />
+            <button onclick="addUrl()" class="add-btn">添加URL</button>
+        </div>
+
+        <div id="message" style="display: none;"></div>
+        <div id="urlList" class="url-list"></div>
+    </div>
+
+    <script>
+        const defaultUrl = 'https://raw.githubusercontent.com/rdone4425/cfipcaiji/refs/heads/main/ip.txt';
+
+        // 主题切换
+        function toggleTheme() {
+            const body = document.body;
+            const currentTheme = body.getAttribute('data-theme');
+            if (currentTheme === 'dark') {
+                body.removeAttribute('data-theme');
+                localStorage.setItem('theme', 'light');
+            } else {
+                body.setAttribute('data-theme', 'dark');
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        // 初始化
+        window.onload = function() {
+            // 加载主题
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.body.setAttribute('data-theme', 'dark');
+            }
+
+            // 加载URL列表
+            loadUrlList();
+        };
+
+        function showMessage(message, isError = false) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = message;
+            messageDiv.className = isError ? 'info error' : 'info';
+            messageDiv.style.display = 'block';
+            setTimeout(() => {
+                messageDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        function loadUrlList() {
+            const urlList = JSON.parse(localStorage.getItem('urlList') || '[]');
+            const listElement = document.getElementById('urlList');
+            
+            listElement.innerHTML = '';
+            urlList.forEach(url => {
+                const item = document.createElement('div');
+                item.className = 'url-item';
+                
+                const urlText = document.createElement('div');
+                urlText.className = 'url-text';
+                urlText.textContent = url;
+                
+                const buttonGroup = document.createElement('div');
+                buttonGroup.className = 'button-group';
+                
+                const setDefaultBtn = document.createElement('button');
+                setDefaultBtn.textContent = '设为默认';
+                setDefaultBtn.className = 'add-btn';
+                setDefaultBtn.onclick = () => setAsDefault(url);
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = '删除';
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.onclick = () => deleteUrl(url);
+                
+                buttonGroup.appendChild(setDefaultBtn);
+                buttonGroup.appendChild(deleteBtn);
+                
+                item.appendChild(urlText);
+                item.appendChild(buttonGroup);
+                listElement.appendChild(item);
+            });
+        }
+
+        function addUrl() {
+            const url = document.getElementById('urlInput').value.trim();
+            if (!url) {
+                showMessage('请输入URL', true);
+                return;
+            }
+            
+            try {
+                new URL(url);
+            } catch {
+                showMessage('请输入有效的URL', true);
+                return;
+            }
+            
+            const urlList = JSON.parse(localStorage.getItem('urlList') || '[]');
+            if (!urlList.includes(url)) {
+                urlList.push(url);
+                localStorage.setItem('urlList', JSON.stringify(urlList));
+                document.getElementById('urlInput').value = '';
+                showMessage('URL已添加');
+                loadUrlList();
+            } else {
+                showMessage('URL已存在', true);
+            }
+        }
+
+        function deleteUrl(url) {
+            const urlList = JSON.parse(localStorage.getItem('urlList') || '[]');
+            const index = urlList.indexOf(url);
+            if (index > -1) {
+                urlList.splice(index, 1);
+                localStorage.setItem('urlList', JSON.stringify(urlList));
+                showMessage('URL已删除');
+                loadUrlList();
+            }
+        }
+
+        function setAsDefault(url) {
+            localStorage.setItem('ipFileUrl', url);
+            showMessage('已设置为默认URL');
+        }
+    </script>
+</body>
+</html> 
