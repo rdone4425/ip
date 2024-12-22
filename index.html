@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IP文件下载器</title>
+    <title>IP地址查看器</title>
     <style>
         :root {
             --primary-color: #4CAF50;
@@ -239,20 +239,77 @@
             visibility: visible;
             opacity: 1;
         }
+
+        .ip-count {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        
+        .refresh-time {
+            font-size: 0.9em;
+            color: var(--secondary-color);
+            margin-top: 5px;
+        }
+
+        .auto-refresh {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .auto-refresh input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+        }
+
+        .auto-refresh label {
+            color: var(--text-color);
+            cursor: pointer;
+        }
+
+        .ip-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .ip-item {
+            padding: 10px;
+            background-color: var(--background-color);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .ip-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .copy-all-btn {
+            background-color: var(--primary-color);
+            margin-left: auto;
+        }
     </style>
 </head>
 <body>
     <button class="theme-switch" onclick="toggleTheme()" title="切换主题">🌓</button>
     <div class="container">
-        <h1>IP文件下载器</h1>
+        <h1>IP地址查看器</h1>
         
         <div class="description">
-            这是一个简单的工具，用于下载和显示IP地址列表。你可以：
+            这是一个在线IP地址查看工具，你可以：
             <ul>
-                <li>输入自定义的IP文件URL</li>
-                <li>使用默认URL获取IP列表</li>
-                <li>下载完整的IP文件</li>
-                <li>查看并复制单个IP地址</li>
+                <li>查看IP文件中的所有有效IP地址</li>
+                <li>快速复制单个或所有IP地址</li>
+                <li>自动刷新IP列表</li>
+                <li>自定义IP文件来源</li>
             </ul>
         </div>
 
@@ -266,30 +323,33 @@
                 保存URL
                 <span class="tooltiptext">保存当前URL到本地</span>
             </button>
-        </div>
-        <div class="button-group">
-            <button onclick="downloadIP()" class="tooltip">
-                下载IP文件
-                <span class="tooltiptext">下载完整IP文件</span>
-            </button>
             <button onclick="fetchAndDisplay()" class="tooltip">
-                显示IP列表
-                <span class="tooltiptext">在线显示所有IP</span>
+                刷新IP列表
+                <span class="tooltiptext">重新获取IP列表</span>
             </button>
-            <button onclick="copyAllIPs()" class="tooltip">
+            <button onclick="copyAllIPs()" class="tooltip copy-all-btn">
                 复制所有IP
                 <span class="tooltiptext">复制所有IP到剪贴板</span>
             </button>
         </div>
+
+        <div class="auto-refresh">
+            <input type="checkbox" id="autoRefresh" onchange="toggleAutoRefresh()">
+            <label for="autoRefresh">自动刷新 (每5分钟)</label>
+            <span class="refresh-time" id="refreshTime"></span>
+        </div>
+
         <div id="info" class="info" style="display: none;"></div>
         <div id="content"></div>
         <div class="footer">
-            <p>© 2024 IP文件下载器 | <a href="https://github.com/rdone4425/ip" target="_blank" style="color: var(--primary-color);">GitHub</a></p>
+            <p>© 2024 IP地址查看器 | <a href="https://github.com/rdone4425/ip" target="_blank" style="color: var(--primary-color);">GitHub</a></p>
         </div>
     </div>
     <script>
         const defaultUrl = 'https://raw.githubusercontent.com/rdone4425/cfipcaiji/refs/heads/main/ip.txt';
         let isLoading = false;
+        let autoRefreshInterval;
+        let lastRefreshTime = null;
         
         // 主题切换
         function toggleTheme() {
@@ -319,6 +379,16 @@
             } else {
                 document.getElementById('urlInput').value = defaultUrl;
             }
+
+            // 恢复自动刷新状态
+            const autoRefresh = localStorage.getItem('autoRefresh') === 'true';
+            document.getElementById('autoRefresh').checked = autoRefresh;
+            if (autoRefresh) {
+                startAutoRefresh();
+            }
+            
+            // 立即加载IP列表
+            fetchAndDisplay();
         };
 
         function getCurrentUrl() {
@@ -366,43 +436,15 @@
             }
         }
         
-        async function downloadIP() {
-            const button = event.target;
-            try {
-                const url = getCurrentUrl();
-                if (!url) return;
-
-                await setLoading(button, true);
-                const response = await fetch(url);
-                if (!response.ok) throw new Error('网络响应不正常');
-                const text = await response.text();
-                
-                const blob = new Blob([text], { type: 'text/plain' });
-                const downloadUrl = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = downloadUrl;
-                a.download = 'ip.txt';
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(downloadUrl);
-                document.body.removeChild(a);
-                showInfo('下载成功');
-            } catch (error) {
-                showError('下载文件时出错: ' + error.message);
-            } finally {
-                await setLoading(button, false);
-            }
-        }
-
         async function fetchAndDisplay() {
-            const button = event.target;
+            const button = event?.target;
             const contentDiv = document.getElementById('content');
             const infoDiv = document.getElementById('info');
             try {
                 const url = getCurrentUrl();
                 if (!url) return;
 
-                await setLoading(button, true);
+                if (button) await setLoading(button, true);
                 const response = await fetch(url);
                 if (!response.ok) throw new Error('网络响应不正常');
                 const text = await response.text();
@@ -414,11 +456,11 @@
                 infoDiv.textContent = `共找到 ${ips.length} 个有效IP地址`;
                 infoDiv.style.display = 'block';
                 
-                const ul = document.createElement('ul');
-                ul.className = 'ip-list';
+                const ul = document.createElement('div');
+                ul.className = 'ip-grid';
                 
                 ips.forEach(ip => {
-                    const li = document.createElement('li');
+                    const li = document.createElement('div');
                     li.className = 'ip-item';
                     
                     const ipText = document.createElement('span');
@@ -444,10 +486,17 @@
                 
                 contentDiv.innerHTML = '';
                 contentDiv.appendChild(ul);
+                
+                lastRefreshTime = new Date();
+                updateRefreshTime();
+                
+                // 启动定时更新刷新时间
+                setInterval(updateRefreshTime, 30000); // 每30秒更新一次时间显示
+                
             } catch (error) {
-                showError('获取文件内容时出错: ' + error.message);
+                showError('获取IP列表时出错: ' + error.message);
             } finally {
-                await setLoading(button, false);
+                if (button) await setLoading(button, false);
             }
         }
 
@@ -485,6 +534,48 @@
             infoDiv.style.display = 'none';
             contentDiv.innerHTML = `<div class="error">${message}</div>`;
         }
+
+        function toggleAutoRefresh() {
+            const checkbox = document.getElementById('autoRefresh');
+            if (checkbox.checked) {
+                startAutoRefresh();
+            } else {
+                stopAutoRefresh();
+            }
+        }
+
+        function startAutoRefresh() {
+            fetchAndDisplay();
+            autoRefreshInterval = setInterval(fetchAndDisplay, 5 * 60 * 1000); // 5分钟
+            updateRefreshTime();
+        }
+
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+        }
+
+        function updateRefreshTime() {
+            const timeDiv = document.getElementById('refreshTime');
+            if (lastRefreshTime) {
+                const now = new Date();
+                const diff = Math.floor((now - lastRefreshTime) / 1000);
+                if (diff < 60) {
+                    timeDiv.textContent = `上次更新: ${diff}秒前`;
+                } else if (diff < 3600) {
+                    timeDiv.textContent = `上次更新: ${Math.floor(diff / 60)}分钟前`;
+                } else {
+                    timeDiv.textContent = `上次更新: ${lastRefreshTime.toLocaleTimeString()}`;
+                }
+            }
+        }
+
+        // 页面关闭时保存自动刷新状态
+        window.onbeforeunload = function() {
+            localStorage.setItem('autoRefresh', document.getElementById('autoRefresh').checked);
+        };
     </script>
 </body>
 </html> 
