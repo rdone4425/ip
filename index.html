@@ -9,23 +9,114 @@
         .container { background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         button { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin: 10px 0; }
         button:hover { background-color: #45a049; }
-        #content { margin-top: 20px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; white-space: pre-wrap; word-break: break-all; }
+        #content { margin-top: 20px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
         .error { color: red; margin-top: 10px; }
+        .ip-list { list-style: none; padding: 0; }
+        .ip-item { 
+            padding: 8px 12px;
+            margin: 5px 0;
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .ip-item:hover { background-color: #e9ecef; }
+        .copy-btn {
+            background-color: #6c757d;
+            color: white;
+            padding: 4px 8px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .copy-btn:hover { background-color: #5a6268; }
+        .info { 
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #e7f3fe;
+            border-left: 3px solid #2196F3;
+            color: #0c5460;
+        }
+        .url-input {
+            width: 100%;
+            padding: 8px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .url-input:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>IP文件下载器</h1>
-        <button onclick="downloadIP()">下载IP文件</button>
-        <button onclick="fetchAndDisplay()">显示文件内容</button>
+        <input type="text" id="urlInput" class="url-input" placeholder="输入IP文件的URL" />
+        <div class="button-group">
+            <button onclick="setDefaultUrl()">使用默认URL</button>
+            <button onclick="saveUrl()">保存URL</button>
+        </div>
+        <div class="button-group">
+            <button onclick="downloadIP()">下载IP文件</button>
+            <button onclick="fetchAndDisplay()">显示IP列表</button>
+        </div>
+        <div id="info" class="info" style="display: none;"></div>
         <div id="content"></div>
     </div>
     <script>
-        const url = 'https://raw.githubusercontent.com/rdone4425/cfipcaiji/refs/heads/main/ip.txt';
+        const defaultUrl = 'https://raw.githubusercontent.com/rdone4425/cfipcaiji/refs/heads/main/ip.txt';
+        
+        // 初始化时从localStorage加载URL
+        window.onload = function() {
+            const savedUrl = localStorage.getItem('ipFileUrl');
+            if (savedUrl) {
+                document.getElementById('urlInput').value = savedUrl;
+            } else {
+                document.getElementById('urlInput').value = defaultUrl;
+            }
+        };
+
+        function getCurrentUrl() {
+            return document.getElementById('urlInput').value.trim() || defaultUrl;
+        }
+
+        function setDefaultUrl() {
+            document.getElementById('urlInput').value = defaultUrl;
+            saveUrl();
+        }
+
+        function saveUrl() {
+            const url = getCurrentUrl();
+            if (url) {
+                localStorage.setItem('ipFileUrl', url);
+                showInfo('URL已保存');
+            }
+        }
+
+        function showInfo(message) {
+            const infoDiv = document.getElementById('info');
+            infoDiv.textContent = message;
+            infoDiv.style.display = 'block';
+            setTimeout(() => {
+                infoDiv.style.display = 'none';
+            }, 2000);
+        }
         
         async function downloadIP() {
             try {
-                const response = await fetch(url);
+                const response = await fetch(getCurrentUrl());
                 if (!response.ok) throw new Error('网络响应不正常');
                 const text = await response.text();
                 const blob = new Blob([text], { type: 'text/plain' });
@@ -44,11 +135,50 @@
 
         async function fetchAndDisplay() {
             const contentDiv = document.getElementById('content');
+            const infoDiv = document.getElementById('info');
             try {
-                const response = await fetch(url);
+                const response = await fetch(getCurrentUrl());
                 if (!response.ok) throw new Error('网络响应不正常');
                 const text = await response.text();
-                contentDiv.textContent = text;
+                
+                // 分割IP地址并过滤空行
+                const ips = text.split(/[\s,]+/).filter(ip => ip.trim().length > 0);
+                
+                // 显示IP数量
+                infoDiv.textContent = `共找到 ${ips.length} 个IP地址`;
+                infoDiv.style.display = 'block';
+                
+                // 创建IP列表
+                const ul = document.createElement('ul');
+                ul.className = 'ip-list';
+                
+                ips.forEach(ip => {
+                    const li = document.createElement('li');
+                    li.className = 'ip-item';
+                    
+                    const ipText = document.createElement('span');
+                    ipText.textContent = ip;
+                    
+                    const copyBtn = document.createElement('button');
+                    copyBtn.className = 'copy-btn';
+                    copyBtn.textContent = '复制';
+                    copyBtn.onclick = () => {
+                        navigator.clipboard.writeText(ip).then(() => {
+                            const originalText = copyBtn.textContent;
+                            copyBtn.textContent = '已复制!';
+                            setTimeout(() => {
+                                copyBtn.textContent = originalText;
+                            }, 1000);
+                        });
+                    };
+                    
+                    li.appendChild(ipText);
+                    li.appendChild(copyBtn);
+                    ul.appendChild(li);
+                });
+                
+                contentDiv.innerHTML = '';
+                contentDiv.appendChild(ul);
             } catch (error) {
                 showError('获取文件内容时出错: ' + error.message);
             }
@@ -56,6 +186,8 @@
 
         function showError(message) {
             const contentDiv = document.getElementById('content');
+            const infoDiv = document.getElementById('info');
+            infoDiv.style.display = 'none';
             contentDiv.innerHTML = `<div class="error">${message}</div>`;
         }
     </script>
