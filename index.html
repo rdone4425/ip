@@ -3,83 +3,316 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IP文件下载</title>
+    <title>IP文件下载器</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 0 20px; background-color: #f5f5f5; }
-        .container { background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        button { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin: 10px 0; }
-        button:hover { background-color: #45a049; }
-        #content { margin-top: 20px; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
-        .error { color: red; margin-top: 10px; }
-        .ip-list { list-style: none; padding: 0; }
+        :root {
+            --primary-color: #4CAF50;
+            --primary-hover: #45a049;
+            --secondary-color: #6c757d;
+            --secondary-hover: #5a6268;
+            --background-color: #f5f5f5;
+            --card-background: white;
+            --text-color: #333;
+            --border-color: #ddd;
+        }
+
+        [data-theme="dark"] {
+            --primary-color: #66bb6a;
+            --primary-hover: #4caf50;
+            --secondary-color: #90a4ae;
+            --secondary-hover: #78909c;
+            --background-color: #1a1a1a;
+            --card-background: #2d2d2d;
+            --text-color: #e0e0e0;
+            --border-color: #404040;
+        }
+
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 20px auto; 
+            padding: 0 20px; 
+            background-color: var(--background-color);
+            color: var(--text-color);
+            transition: all 0.3s ease;
+        }
+
+        .container { 
+            background-color: var(--card-background); 
+            padding: 20px; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        button { 
+            background-color: var(--primary-color); 
+            color: white; 
+            padding: 10px 20px; 
+            border: none; 
+            border-radius: 4px; 
+            cursor: pointer; 
+            font-size: 16px; 
+            margin: 10px 0;
+            transition: all 0.3s ease;
+        }
+
+        button:hover { 
+            background-color: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            background-color: var(--secondary-color);
+            cursor: not-allowed;
+        }
+
+        #content { 
+            margin-top: 20px; 
+            padding: 10px; 
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+
+        .error { 
+            color: #dc3545; 
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: rgba(220, 53, 69, 0.1);
+        }
+
+        .ip-list { 
+            list-style: none; 
+            padding: 0;
+        }
+
         .ip-item { 
             padding: 8px 12px;
             margin: 5px 0;
-            background-color: #f8f9fa;
-            border: 1px solid #e9ecef;
+            background-color: var(--background-color);
+            border: 1px solid var(--border-color);
             border-radius: 4px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            transition: all 0.3s ease;
         }
-        .ip-item:hover { background-color: #e9ecef; }
+
+        .ip-item:hover { 
+            transform: translateX(5px);
+            background-color: var(--card-background);
+        }
+
         .copy-btn {
-            background-color: #6c757d;
+            background-color: var(--secondary-color);
             color: white;
             padding: 4px 8px;
             border: none;
             border-radius: 3px;
             cursor: pointer;
             font-size: 12px;
+            transition: all 0.3s ease;
         }
-        .copy-btn:hover { background-color: #5a6268; }
+
+        .copy-btn:hover { 
+            background-color: var(--secondary-hover);
+        }
+
         .info { 
             margin: 10px 0;
             padding: 10px;
-            background-color: #e7f3fe;
+            background-color: rgba(33, 150, 243, 0.1);
             border-left: 3px solid #2196F3;
-            color: #0c5460;
+            color: var(--text-color);
         }
+
         .url-input {
             width: 100%;
             padding: 8px;
             margin: 10px 0;
-            border: 1px solid #ddd;
+            border: 1px solid var(--border-color);
             border-radius: 4px;
             font-size: 14px;
+            background-color: var(--card-background);
+            color: var(--text-color);
+            transition: all 0.3s ease;
         }
+
         .url-input:focus {
             outline: none;
-            border-color: #4CAF50;
+            border-color: var(--primary-color);
             box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
         }
+
         .button-group {
             display: flex;
             gap: 10px;
             margin: 10px 0;
+            flex-wrap: wrap;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .theme-switch {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            cursor: pointer;
+            padding: 10px;
+            border-radius: 50%;
+            background-color: var(--card-background);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            transition: all 0.3s ease;
+        }
+
+        .theme-switch:hover {
+            transform: rotate(180deg);
+        }
+
+        .description {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: rgba(33, 150, 243, 0.1);
+            border-radius: 4px;
+            line-height: 1.6;
+        }
+
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            color: var(--secondary-color);
+            font-size: 14px;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+                margin: 10px;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
+            button {
+                width: 100%;
+            }
+        }
+
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 120px;
+            background-color: var(--secondary-color);
+            color: white;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -60px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
         }
     </style>
 </head>
 <body>
+    <button class="theme-switch" onclick="toggleTheme()" title="切换主题">🌓</button>
     <div class="container">
         <h1>IP文件下载器</h1>
+        
+        <div class="description">
+            这是一个简单的工具，用于下载和显示IP地址列表。你可以：
+            <ul>
+                <li>输入自定义的IP文件URL</li>
+                <li>使用默认URL获取IP列表</li>
+                <li>下载完整的IP文件</li>
+                <li>查看并复制单个IP地址</li>
+            </ul>
+        </div>
+
         <input type="text" id="urlInput" class="url-input" placeholder="输入IP文件的URL" />
         <div class="button-group">
-            <button onclick="setDefaultUrl()">使用默认URL</button>
-            <button onclick="saveUrl()">保存URL</button>
+            <button onclick="setDefaultUrl()" class="tooltip">
+                使用默认URL
+                <span class="tooltiptext">恢复默认IP文件地址</span>
+            </button>
+            <button onclick="saveUrl()" class="tooltip">
+                保存URL
+                <span class="tooltiptext">保存当前URL到本地</span>
+            </button>
         </div>
         <div class="button-group">
-            <button onclick="downloadIP()">下载IP文件</button>
-            <button onclick="fetchAndDisplay()">显示IP列表</button>
+            <button onclick="downloadIP()" class="tooltip">
+                下载IP文件
+                <span class="tooltiptext">下载完整IP文件</span>
+            </button>
+            <button onclick="fetchAndDisplay()" class="tooltip">
+                显示IP列表
+                <span class="tooltiptext">在线显示所有IP</span>
+            </button>
+            <button onclick="copyAllIPs()" class="tooltip">
+                复制所有IP
+                <span class="tooltiptext">复制所有IP到剪贴板</span>
+            </button>
         </div>
         <div id="info" class="info" style="display: none;"></div>
         <div id="content"></div>
+        <div class="footer">
+            <p>© 2024 IP文件下载器 | <a href="https://github.com/rdone4425/ip" target="_blank" style="color: var(--primary-color);">GitHub</a></p>
+        </div>
     </div>
     <script>
         const defaultUrl = 'https://raw.githubusercontent.com/rdone4425/cfipcaiji/refs/heads/main/ip.txt';
+        let isLoading = false;
         
-        // 初始化时从localStorage加载URL
+        // 主题切换
+        function toggleTheme() {
+            const body = document.body;
+            const currentTheme = body.getAttribute('data-theme');
+            if (currentTheme === 'dark') {
+                body.removeAttribute('data-theme');
+                localStorage.setItem('theme', 'light');
+            } else {
+                body.setAttribute('data-theme', 'dark');
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        // 初始化
         window.onload = function() {
+            // 加载主题
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                document.body.setAttribute('data-theme', 'dark');
+            }
+
+            // 加载保存的URL
             const savedUrl = localStorage.getItem('ipFileUrl');
             if (savedUrl) {
                 document.getElementById('urlInput').value = savedUrl;
@@ -89,7 +322,15 @@
         };
 
         function getCurrentUrl() {
-            return document.getElementById('urlInput').value.trim() || defaultUrl;
+            const url = document.getElementById('urlInput').value.trim();
+            if (!url) return defaultUrl;
+            try {
+                new URL(url);
+                return url;
+            } catch {
+                showError('请输入有效的URL');
+                return null;
+            }
         }
 
         function setDefaultUrl() {
@@ -113,12 +354,29 @@
                 infoDiv.style.display = 'none';
             }, 2000);
         }
+
+        async function setLoading(button, isLoading) {
+            const originalText = button.textContent;
+            if (isLoading) {
+                button.disabled = true;
+                button.innerHTML = '<span class="loading"></span>加载中...';
+            } else {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
         
         async function downloadIP() {
+            const button = event.target;
             try {
-                const response = await fetch(getCurrentUrl());
+                const url = getCurrentUrl();
+                if (!url) return;
+
+                await setLoading(button, true);
+                const response = await fetch(url);
                 if (!response.ok) throw new Error('网络响应不正常');
                 const text = await response.text();
+                
                 const blob = new Blob([text], { type: 'text/plain' });
                 const downloadUrl = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -128,27 +386,34 @@
                 a.click();
                 window.URL.revokeObjectURL(downloadUrl);
                 document.body.removeChild(a);
+                showInfo('下载成功');
             } catch (error) {
                 showError('下载文件时出错: ' + error.message);
+            } finally {
+                await setLoading(button, false);
             }
         }
 
         async function fetchAndDisplay() {
+            const button = event.target;
             const contentDiv = document.getElementById('content');
             const infoDiv = document.getElementById('info');
             try {
-                const response = await fetch(getCurrentUrl());
+                const url = getCurrentUrl();
+                if (!url) return;
+
+                await setLoading(button, true);
+                const response = await fetch(url);
                 if (!response.ok) throw new Error('网络响应不正常');
                 const text = await response.text();
                 
-                // 分割IP地址并过滤空行
-                const ips = text.split(/[\s,]+/).filter(ip => ip.trim().length > 0);
+                const ips = text.split(/[\s,]+/).filter(ip => {
+                    return ip.trim().length > 0 && isValidIP(ip.trim());
+                });
                 
-                // 显示IP数量
-                infoDiv.textContent = `共找到 ${ips.length} 个IP地址`;
+                infoDiv.textContent = `共找到 ${ips.length} 个有效IP地址`;
                 infoDiv.style.display = 'block';
                 
-                // 创建IP列表
                 const ul = document.createElement('ul');
                 ul.className = 'ip-list';
                 
@@ -181,7 +446,37 @@
                 contentDiv.appendChild(ul);
             } catch (error) {
                 showError('获取文件内容时出错: ' + error.message);
+            } finally {
+                await setLoading(button, false);
             }
+        }
+
+        async function copyAllIPs() {
+            const contentDiv = document.getElementById('content');
+            const ipList = contentDiv.querySelectorAll('.ip-item span');
+            if (ipList.length === 0) {
+                showInfo('请先加载IP列表');
+                return;
+            }
+
+            const ips = Array.from(ipList).map(span => span.textContent).join('\n');
+            try {
+                await navigator.clipboard.writeText(ips);
+                showInfo(`已复制 ${ipList.length} 个IP地址`);
+            } catch (error) {
+                showError('复制失败: ' + error.message);
+            }
+        }
+
+        function isValidIP(ip) {
+            const pattern = /^(\d{1,3}\.){3}\d{1,3}$/;
+            if (!pattern.test(ip)) return false;
+            
+            const parts = ip.split('.');
+            return parts.every(part => {
+                const num = parseInt(part, 10);
+                return num >= 0 && num <= 255;
+            });
         }
 
         function showError(message) {
