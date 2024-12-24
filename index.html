@@ -24,7 +24,7 @@
             padding: 20px;
         }
 
-        h1 {
+        h1, h2 {
             text-align: center;
             margin-bottom: 30px;
             color: #2c3e50;
@@ -52,11 +52,20 @@
             background-color: #2980b9;
         }
 
-        .ip-list-section {
+        .button.danger {
+            background-color: #e74c3c;
+        }
+
+        .button.danger:hover {
+            background-color: #c0392b;
+        }
+
+        .section {
             background-color: white;
             border-radius: 8px;
             padding: 20px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
         }
 
         .ip-list {
@@ -93,6 +102,69 @@
         .loading {
             color: #f39c12;
         }
+
+        .source-list {
+            display: grid;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .source-item {
+            display: grid;
+            grid-template-columns: 1fr 2fr auto auto;
+            gap: 10px;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .source-form {
+            display: grid;
+            gap: 10px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .form-group {
+            display: grid;
+            gap: 5px;
+        }
+
+        input[type="text"] {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            position: relative;
+            background-color: white;
+            margin: 10% auto;
+            padding: 20px;
+            width: 80%;
+            max-width: 600px;
+            border-radius: 8px;
+        }
+
+        .close {
+            position: absolute;
+            right: 20px;
+            top: 10px;
+            font-size: 24px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -102,9 +174,10 @@
             <button onclick="queryAllIPs()" class="button">查询所有IP</button>
             <button onclick="clearCache()" class="button">清除缓存</button>
             <button onclick="exportResults()" class="button">导出结果</button>
+            <button onclick="showConfig()" class="button">配置管理</button>
         </div>
         
-        <div class="ip-list-section">
+        <div class="section ip-list-section">
             <h2>IP列表</h2>
             <div class="ip-list" id="ipList">
                 <!-- IP列表将通过JavaScript动态加载 -->
@@ -112,9 +185,42 @@
         </div>
     </div>
 
+    <!-- 配置管理模态框 -->
+    <div id="configModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="hideConfig()">&times;</span>
+            <h2>配置管理</h2>
+            
+            <div class="section">
+                <h3>IP列表源</h3>
+                <div class="source-list" id="sourceList">
+                    <!-- IP列表源将通过JavaScript动态加载 -->
+                </div>
+                
+                <form class="source-form" onsubmit="addSource(event)">
+                    <div class="form-group">
+                        <label for="sourceName">名称</label>
+                        <input type="text" id="sourceName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="sourceUrl">URL</label>
+                        <input type="text" id="sourceUrl" required>
+                    </div>
+                    <button type="submit" class="button">添加IP列表源</button>
+                </form>
+            </div>
+            
+            <div class="nav-links">
+                <button onclick="exportConfig()" class="button">导出配置</button>
+                <button onclick="importConfig()" class="button">导入配置</button>
+                <button onclick="resetConfig()" class="button danger">重置配置</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // 配置
-        const config = {
+        // 默认配置
+        const DEFAULT_CONFIG = {
             ipLists: [
                 {
                     name: 'caiji',
@@ -129,8 +235,27 @@
             ]
         };
 
+        // 当前配置
+        let config = {};
+        
         // 缓存
         let ipCache = {};
+        
+        // 加载配置
+        function loadConfig() {
+            const saved = localStorage.getItem('config');
+            if (saved) {
+                config = JSON.parse(saved);
+            } else {
+                config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+                saveConfig();
+            }
+        }
+
+        // 保存配置
+        function saveConfig() {
+            localStorage.setItem('config', JSON.stringify(config));
+        }
         
         // 加载缓存
         function loadCache() {
@@ -311,10 +436,146 @@
             document.body.removeChild(link);
         }
 
+        // 显示配置管理界面
+        function showConfig() {
+            document.getElementById('configModal').style.display = 'block';
+            displaySources();
+        }
+
+        // 隐藏配置管理界面
+        function hideConfig() {
+            document.getElementById('configModal').style.display = 'none';
+        }
+
+        // 显示IP列表源
+        function displaySources() {
+            const container = document.getElementById('sourceList');
+            container.innerHTML = '';
+            
+            config.ipLists.forEach((source, index) => {
+                const div = document.createElement('div');
+                div.className = 'source-item';
+                div.innerHTML = `
+                    <div>${source.name}</div>
+                    <div>${source.url}</div>
+                    <button onclick="toggleSource(${index})" class="button">
+                        ${source.enabled ? '禁用' : '启用'}
+                    </button>
+                    <button onclick="deleteSource(${index})" class="button danger">删除</button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // 添加IP列表源
+        function addSource(event) {
+            event.preventDefault();
+            
+            const name = document.getElementById('sourceName').value;
+            const url = document.getElementById('sourceUrl').value;
+            
+            config.ipLists.push({
+                name,
+                url,
+                enabled: true
+            });
+            
+            saveConfig();
+            displaySources();
+            
+            // 清空表单
+            event.target.reset();
+        }
+
+        // 删除IP列表源
+        function deleteSource(index) {
+            if (!confirm('确定要删除这个IP列表源吗？')) {
+                return;
+            }
+            
+            config.ipLists.splice(index, 1);
+            saveConfig();
+            displaySources();
+        }
+
+        // 启用/禁用IP列表源
+        function toggleSource(index) {
+            config.ipLists[index].enabled = !config.ipLists[index].enabled;
+            saveConfig();
+            displaySources();
+        }
+
+        // 导出配置
+        function exportConfig() {
+            const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'ip_config.json';
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // 导入配置
+        function importConfig() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'application/json';
+            input.style.display = 'none';
+            
+            input.onchange = function(event) {
+                const file = event.target.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    try {
+                        const newConfig = JSON.parse(e.target.result);
+                        if (newConfig.ipLists) {
+                            config = newConfig;
+                            saveConfig();
+                            displaySources();
+                            alert('配置导入成功');
+                        } else {
+                            throw new Error('无效的配置文件');
+                        }
+                    } catch (error) {
+                        alert('配置导入失败: ' + error.message);
+                    }
+                };
+                
+                reader.readAsText(file);
+            };
+            
+            document.body.appendChild(input);
+            input.click();
+            document.body.removeChild(input);
+        }
+
+        // 重置配置
+        function resetConfig() {
+            if (!confirm('确定要重置配置吗？这将恢复默认设置。')) {
+                return;
+            }
+            
+            config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+            saveConfig();
+            displaySources();
+        }
+
         // 页面加载时初始化
         window.onload = async function() {
+            loadConfig();
             loadCache();
             await queryAllIPs();
+        };
+
+        // 点击模态框外部时关闭
+        window.onclick = function(event) {
+            const modal = document.getElementById('configModal');
+            if (event.target === modal) {
+                hideConfig();
+            }
         };
     </script>
 </body>
