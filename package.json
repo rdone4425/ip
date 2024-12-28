@@ -1,0 +1,17 @@
+{
+  "name": "ip-lookup",
+  "version": "1.0.0",
+  "description": "IP lookup service",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "update-db": "node scripts/update-db.js"
+  },
+  "dependencies": {
+    "next": "^13.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "maxmind": "^4.3.11"
+  }
+} 
